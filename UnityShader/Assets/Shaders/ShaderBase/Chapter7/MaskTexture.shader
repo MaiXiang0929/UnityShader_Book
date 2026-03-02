@@ -94,82 +94,49 @@ Shader "Custom/ShaderBase/Chapter7/MaskTexture"
                 return output;
             }
 
-            half4 frag(Varyings input) : SV_TARGET
+            half4 frag(Varyings input) : SV_Target
             {
-                // 获取基础纹理颜色
-                half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv) * _BaseColor;
+                // Light Info
+                Light mainLight = GetMainLight(); 
+                half3 lightDirWS = normalize(mainLight.direction);
+                half3 lightColor = mainLight.color;
 
+                // Texture Info
+                half4  baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
+                half4 bumpMap = SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap,input.uv);
+                half specularMask = SAMPLE_TEXTURE2D(_SpecularMask, sampler_SpecularMask, input.uv).r * _SpecularScale;
+                
+
+                // Normalize Vector
                 // 解码法线并从切线空间转换到世界空间
                 half3 normalTS = UnpackNormalScale(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, input.uv), _BumpScale);
-
                 float3x3 tangentToWorld = float3x3(input.tangentWS, input.bitangentWS, input.normalWS);
                 half3 normalWS = normalize(mul(normalTS, tangentToWorld));
 
-                // 获取主光源信息
-                Light mainLight = GetMainLight();
-                half3 lightDirWS = normalize(mainLight.direction);
                 half3 viewDirWS = normalize(GetWorldSpaceViewDir(input.positionWS));
                 half3 halfDirWS = normalize(lightDirWS + viewDirWS);
 
-                // 计算光照(Blinn-Phong)
-                // ambient
+                // Albedo
+                half4 albedo = baseMap * _BaseColor;
+
+                // Ambient
                 half3 ambient = SampleSH(normalWS) * albedo.rgb;
 
-                // diffuse
+                // Diffuse
                 float diff = max(0, dot(normalWS, lightDirWS));
-                half3 diffuse = mainLight.color * albedo.rgb * diff;
+                half3 diffuse = lightColor * albedo.rgb * diff;
 
                 // specular
                 float spec = pow(max(0, dot(normalWS, halfDirWS)), _Gloss);
-                half3 specular = mainLight.color * _SpecularColor.rgb * spec;
+                half3 specular = lightColor * _SpecularColor.rgb * spec * specularMask;
 
                 // finalColor
                 half3 finalColor = ambient + diffuse + specular;
 
-                return half4(finalColor, albedo.a);
+                return half4(finalColor, 1.0);
             }
-
             ENDHLSL
         }
-    //    Pass{
-    //        v2f vert(a2v v){
-    //            v2f o;
-    //            o.pos = UnityObjectToClipPos(v.vertex);
-    //            o.uv.xy = v.texcoord.xy * _MainTex_ST.xy +_MainTex_ST.zw;
-
-    //            TANGENT_SPACE_ROTATION;
-    //            // transform the light direction from object space to tangent space
-    //            o.lightDir = mul(rotation, ObjSpaceLightDir(v.vertex)).xyz;
-    //            // transform the view direction from object space to tangent space
-    //            o.viewDir = mul(rotation, ObjSpaceViewDir(v.vertex)).xyz;
-
-    //            return o;
-    //        }
-
-    //        fixed4 frag(v2f i) : SV_Target{
-    //            fixed3 tangentLightDir = normalize(i.lightDir);
-    //            fixed3 tangentViewDir = normalize(i.viewDir);
-
-    //            fixed3 tangentNormal = UnpackNormal(tex2D(_BumpMap, i.uv));
-    //            tangentNormal.xy *= _BumpScale;
-    //            tangentNormal.z = sqrt(1.0 - saturate(dot(tangentNormal.xy, tangentNormal.xy)));
-
-    //            fixed3 albedo = tex2D(_MainTex, i.uv).rgb * _Color.rgb;
-    //            fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz * albedo;
-
-    //            fixed3 diffuse = _LightColor0.rgb * albedo * max(0, dot(tangentNormal, tangentLightDir));
-
-    //            fixed3 halfDir = normalize(tangentLightDir + tangentViewDir);
-    //            // get the mask value
-    //            fixed3 specularMask = tex2D(_SpecularMask, i.uv).r * _SpecularScale;
-    //            // compute specular term with the specular mask
-    //            fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(max(0, dot(tangentNormal, halfDir)), _Gloss) * specularMask;
-
-    //            return fixed4(ambient + diffuse + specular, 1.0);
-
-    //        }
-    //        ENDCG
-    //    }
     }
     FallBack "Hidden/Universal Render Pipeline/FallbackError"
     //项目中用

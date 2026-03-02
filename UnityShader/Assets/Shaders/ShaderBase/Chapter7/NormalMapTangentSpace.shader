@@ -70,7 +70,7 @@ Shader "Custom/ShaderBase/Chapter7/NormalMapTangentSpace"
             {
                 Varyings output = (Varyings)0;
 
-                VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS);
+                VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
                 output.positionCS = vertexInput.positionCS;
 
                 output.uv.xy = input.uv.xy * _BaseMap_ST.xy +_BaseMap_ST.zw;
