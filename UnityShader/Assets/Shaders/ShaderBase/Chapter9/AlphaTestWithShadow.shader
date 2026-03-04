@@ -128,6 +128,7 @@ Shader "Custom/ShaderBase/Chapter9/AlphaTestWithShadow"
                     // Ambient
                     half3 ambient = SampleSH(normalWS) * albedo.rgb;
 
+
                     // Main Light
                     half3 finalColor = ambient + DirectLightBP(mainLight, normalWS, viewDirWS);
 
@@ -160,20 +161,15 @@ Shader "Custom/ShaderBase/Chapter9/AlphaTestWithShadow"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
-            struct ShadowAttributes
-            {
-                float4 positionOS   : POSITION;
-                float3 normalOS     : NORMAL;
-            };
-
             struct ShadowVaryings
             {
                 float4 positionCS   : SV_POSITION;
+                float2 uv           : TEXCOORD0; // 传递 UV
             };
 
             float3 _LightDirection;
 
-            ShadowVaryings ShadowPassVertex(ShadowAttributes input)
+            ShadowVaryings ShadowPassVertex(Attributes input)
             {
                 ShadowVaryings output = (ShadowVaryings)0;
 
@@ -182,10 +178,17 @@ Shader "Custom/ShaderBase/Chapter9/AlphaTestWithShadow"
                 
                 // 使用 URP 专用的阴影偏移裁剪坐标计算
                 output.positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, _LightDirection));
+                output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
                 return output;
             }
 
-            half4 ShadowPassFragment() : SV_Target { return 0; }
+            half4 ShadowPassFragment(ShadowVaryings input) : SV_Target
+            { 
+                // 在阴影 Pass 中也要进行裁剪，否则影子是实心的
+                float alpha = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).a;
+                clip(alpha - _Cutoff);
+                return 0; 
+            }
 
             ENDHLSL
         }
