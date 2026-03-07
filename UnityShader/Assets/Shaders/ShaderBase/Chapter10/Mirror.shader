@@ -2,52 +2,106 @@ Shader "Custom/ShaderBase/Chapter10/Mirror"
 {
     Properties
     {
-        _Color ("Color", Color) = (1,1,1,1)
-        _MainTex ("Albedo (RGB)", 2D) = "white" {}
-        _Glossiness ("Smoothness", Range(0,1)) = 0.5
-        _Metallic ("Metallic", Range(0,1)) = 0.0
+        _BaseColor("Base Color", Color) = (1, 1, 1, 1)
+        _ReflectionTex("Reflection Texture", 2D) = "white" {}
+        _ReflectionStrength ("Reflection Strength", Range(0, 1)) = 1.0
+        _Distortion ("Distortion", Range(0, 0.1)) = 0.02
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
-        LOD 200
-
-        CGPROGRAM
-        // Physically based Standard lighting model, and enable shadows on all light types
-        #pragma surface surf Standard fullforwardshadows
-
-        // Use shader model 3.0 target, to get nicer looking lighting
-        #pragma target 3.0
-
-        sampler2D _MainTex;
-
-        struct Input
+        Tags
         {
-            float2 uv_MainTex;
-        };
-
-        half _Glossiness;
-        half _Metallic;
-        fixed4 _Color;
-
-        // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
-        // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
-        // #pragma instancing_options assumeuniformscaling
-        UNITY_INSTANCING_BUFFER_START(Props)
-            // put more per-instance properties here
-        UNITY_INSTANCING_BUFFER_END(Props)
-
-        void surf (Input IN, inout SurfaceOutputStandard o)
-        {
-            // Albedo comes from a texture tinted by color
-            fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
-            o.Albedo = c.rgb;
-            // Metallic and smoothness come from slider variables
-            o.Metallic = _Metallic;
-            o.Smoothness = _Glossiness;
-            o.Alpha = c.a;
+            "RenderType" = "Opaque"
+            "RenderPipeline" = "UniversalPipeline"
         }
-        ENDCG
+
+        HLSLINCLUDE
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _BaseColor;
+                float _ReflectionStrength;
+                float _Distortion;
+            CBUFFER_END
+
+            TEXTURE2D(_ReflectionTex);
+            SAMPLER(sampler_ReflectionTex);
+
+        ENDHLSL
+
+        Pass
+        {
+            Name "Mirror"
+            Tags {"LightMode" = "UniversalForward"}
+
+            HLSLPROGRAM
+
+                #pragma vertex vert
+                #pragma fragment frag
+
+                struct Attributes
+                {
+                    float4 positionOS : POSITION;
+                    float3 normalOS : NORMAL;
+                    float2 uv : TEXCOORD0;
+                };
+
+                struct Varyings
+                {
+                    float4 positionCS : SV_POSITION;
+                    float2 uv : TEXCOORD0;
+                    float4 screenPos : TEXCOORD1;
+                    float3 normalWS : TEXCOORD2;
+                    float3 viewDirWS : TEXCOORD3;
+                };
+
+                Varyings vert(Attributes input)
+                {
+                    Varyings output = (Varyings)0;
+
+                    // position
+                    VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
+                    output.positionCS = vertexInput.positionCS;
+
+                    // normal
+                    VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS);
+                    output.normalWS = normalInput.normalWS;
+
+                    output.uv = input.uv;
+
+                    output.screenPos = ComputeScreenPos(output.positionCS);
+
+                    output.viewDirWS = GetWorldSpaceViewDir(vertexInput.positionWS);
+                    
+                    return output;
+                }
+
+                half4 frag(Varyings input) : SV_Target
+                {
+                    float2 distortion = float2(
+                    sin(input.uv.y * 50.0 + _Time.y * 2.0),
+                    cos(input.uv.x * 30.0 + _Time.y * 2.0)
+                    ) * _Distortion;
+                    
+                    float2 finalUV = (input.screenPos.xy / input.screenPos.w) + distortion;
+
+                    half4 reflection = SAMPLE_TEXTURE2D(_ReflectionTex, sampler_ReflectionTex, finalUV);
+
+                    half3 V = normalize(input.viewDirWS);
+                    half3 N = normalize(input.normalWS);
+                    float fresnel = pow(1.0 - saturate(dot(V, N)), 3.0);
+
+                    float finalMask = _ReflectionStrength * lerp(0.5, 1.0, fresnel);
+                    
+                    half4 finalColor = reflection * finalMask;
+
+                    return finalColor;
+                }
+            ENDHLSL
+        }
     }
-    FallBack "Diffuse"
+    FallBack "Hidden/Universal Render Pipeline/FallbackError"
+    //项目中用
+    //FallBack "Universal Render Pipeline/Lit"
 }

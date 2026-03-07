@@ -1,8 +1,9 @@
 using UnityEngine;
 
+/// <summary>
+/// Box大小可视化调节脚本 适用于静态场景，数值调好后将挂载该脚本的空物体删除即可
+/// </summary>
 [ExecuteInEditMode]
-// Box大小可视化调节脚本
-// 适用于静态场景，数值调好后将挂载该脚本的空物体删除即可
 public class BoxProjectionVolume : MonoBehaviour
 {
     public Material targetMaterial; // 目标反射材质
