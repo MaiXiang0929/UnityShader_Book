@@ -6,8 +6,8 @@ Shader "Custom/ShaderBase/Chapter10/GlassRefraction"
         _BumpMap("Normal Map", 2D) = "bump" {}
         _Cubemap("Environment Cubemap", Cube) = "_Skybox" {}
 
-        _Distortion("Distortion", Range(0, 100)) = 10
-        _Reflectivity("Reflectivity", Range(0, 1)) = 0.04
+        _Distortion("Distortion", Range(0, 10)) = 10
+        _IOR("Index of Refraction", Range(1.0, 2.0)) = 1.5
     }
 
     SubShader
@@ -25,7 +25,7 @@ Shader "Custom/ShaderBase/Chapter10/GlassRefraction"
 
             CBUFFER_START(UnityPerMaterial)
                 float _Distortion;
-                float _Reflectivity;
+                float _IOR;
             CBUFFER_END
 
             TEXTURE2D(_BaseMap);
@@ -113,10 +113,13 @@ Shader "Custom/ShaderBase/Chapter10/GlassRefraction"
                     half3 albedo = albedoMap.rgb;
 
                     // Refraction
-                    
+                    // IOR
+                    float eta = 1.0 / _IOR;
+                    float3 refractDirWS = refract(-viewDirWS, normalWS, eta);
+                    float3 refractDirVS = TransformWorldToViewDir(refractDirWS);
                     float2 screenUV = input.screenPos.xy / input.screenPos.w;
 
-                    float2 offset = normalWS.xy * _Distortion * 0.01; // 使用世界空间法线使折射更真实
+                    float2 offset = refractDirVS.xy * _Distortion * 0.01;
                     screenUV += offset;
 
                     half3 refractColor = SAMPLE_TEXTURE2D(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, screenUV).rgb;
