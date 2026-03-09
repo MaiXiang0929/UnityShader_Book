@@ -1,4 +1,4 @@
-Shader "Custom/ShaderBase/Chapter10/GlassRefraction"
+Shader "Custom/ShaderBase/Chapter10/Glass"
 {
     Properties
     {
@@ -9,6 +9,10 @@ Shader "Custom/ShaderBase/Chapter10/GlassRefraction"
         [Header(Refraction)]
         _Distortion("Distortion", Range(0, 10)) = 10
         _IOR("Index of Refraction", Range(1.0, 2.0)) = 1.5
+
+        [Header(Dispersion)]
+        // 控制 RGB 三通道 IOR 的差值程度。
+        _Dispersion("Dispersion Strength", Range(0, 0.1)) = 0.02
 
         [Header(Beer Lambert Law)]
         _Thickness("Thickness", Range(0, 5)) = 0.5
@@ -33,6 +37,7 @@ Shader "Custom/ShaderBase/Chapter10/GlassRefraction"
                 float _IOR;
                 float _Thickness;
                 float4 _TargetColor;
+                float _Dispersion;
             CBUFFER_END
 
             TEXTURE2D(_BaseMap);
@@ -100,6 +105,18 @@ Shader "Custom/ShaderBase/Chapter10/GlassRefraction"
                     return output;
                 }
 
+                // 色散采样函数
+                // 使用 URP 宏以支持不同平台的纹理采样规范
+                half3 SampleDispersion(TEXTURE2D_PARAM(tex, smp), float2 uv, float2 offsetDir, float strength)
+                {
+                    float2 offset = offsetDir * strength;
+                    half3 color;
+                    color.r = SAMPLE_TEXTURE2D(tex, smp, uv + offset).r;
+                    color.g = SAMPLE_TEXTURE2D(tex, smp, uv).g;
+                    color.b = SAMPLE_TEXTURE2D(tex, smp, uv - offset).b;
+                    return color;
+                }
+
                 half4 frag(Varyings input) : SV_Target
                 {
                     // Textur Info
@@ -125,18 +142,21 @@ Shader "Custom/ShaderBase/Chapter10/GlassRefraction"
                     float3 refractDirWS = refract(-viewDirWS, normalWS, eta);
                     float3 refractDirVS = TransformWorldToViewDir(refractDirWS);
                     float2 screenUV = input.screenPos.xy / input.screenPos.w;
-
-                    float2 offset = refractDirVS.xy * _Distortion * _Thickness * 0.01;
-                    screenUV += offset;
-
-                    half3 refractColor = SAMPLE_TEXTURE2D(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, screenUV).rgb;
+                    float2 mainOffset = refractDirVS.xy * _Distortion * _Thickness * 0.01;
+                    // Dispersion
+                    half3 refractColor = SampleDispersion(
+                        TEXTURE2D_ARGS(_CameraOpaqueTexture, sampler_CameraOpaqueTexture),
+                        screenUV + mainOffset, 
+                        refractDirVS.xy, 
+                        _Dispersion * 0.5
+                    );
                     // Beer-Lambert
                     // 路径长度修正：视角越斜，路径越长
                     float cosRefract = saturate(dot(normalWS, -refractDirWS));
                     float rayDistance = _Thickness / (cosRefract + 0.0001); // 防止除以零导致的数学崩溃
                     
                     // 计算吸收后的颜色强度 _Absorption 颜色越深，exp(-x) 衰减越快
-                    half3 transmission = exp(-( (1.0 - _TargetColor.rgb) * _Thickness ));
+                    half3 transmission = exp(-( (1.0 - _TargetColor.rgb) * rayDistance ));
                     refractColor *= transmission;
 
                     // Reflection
