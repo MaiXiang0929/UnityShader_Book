@@ -2,9 +2,11 @@ Shader "Custom/ShaderBase/Chapter10/Glass"
 {
     Properties
     {
+        [Header(Surface)]
         _BaseMap("Base Map", 2D) = "white" {}
         _BumpMap("Normal Map", 2D) = "bump" {}
         _Cubemap("Environment Cubemap", Cube) = "_Skybox" {}
+        _Roughness("Roughness (Frosting)", Range(0, 1.0)) = 0.1
 
         [Header(Refraction)]
         _Distortion("Distortion", Range(0, 10)) = 10
@@ -38,6 +40,7 @@ Shader "Custom/ShaderBase/Chapter10/Glass"
                 float _Thickness;
                 float4 _TargetColor;
                 float _Dispersion;
+                float _Roughness;
             CBUFFER_END
 
             TEXTURE2D(_BaseMap);
@@ -105,15 +108,23 @@ Shader "Custom/ShaderBase/Chapter10/Glass"
                     return output;
                 }
 
+                // 生成简易伪随机噪点
+                float Hash(float2 p) {
+                    return frac(sin(dot(p, float2(12.71, 311.7))) * 43758.5453123);
+                }
+
                 // 色散采样函数
                 // 使用 URP 宏以支持不同平台的纹理采样规范
-                half3 SampleDispersion(TEXTURE2D_PARAM(tex, smp), float2 uv, float2 offsetDir, float strength)
+                half3 SampleFrostedDispersion(TEXTURE2D_PARAM(tex, smp), float2 uv, float2 offsetDir, float strength, float roughness)
                 {
+                    float noise = Hash(uv) * 2.0 - 1.0;
+                    float2 jitter = offsetDir * roughness * noise * 0.5; // 粗糙度决定抖动范围
+                    float2 finalUV = uv + jitter;
                     float2 offset = offsetDir * strength;
                     half3 color;
-                    color.r = SAMPLE_TEXTURE2D(tex, smp, uv + offset).r;
-                    color.g = SAMPLE_TEXTURE2D(tex, smp, uv).g;
-                    color.b = SAMPLE_TEXTURE2D(tex, smp, uv - offset).b;
+                    color.r = SAMPLE_TEXTURE2D(tex, smp, finalUV + offset).r;
+                    color.g = SAMPLE_TEXTURE2D(tex, smp, finalUV).g;
+                    color.b = SAMPLE_TEXTURE2D(tex, smp, finalUV - offset).b;
                     return color;
                 }
 
@@ -144,11 +155,12 @@ Shader "Custom/ShaderBase/Chapter10/Glass"
                     float2 screenUV = input.screenPos.xy / input.screenPos.w;
                     float2 mainOffset = refractDirVS.xy * _Distortion * _Thickness * 0.01;
                     // Dispersion
-                    half3 refractColor = SampleDispersion(
+                    half3 refractColor = SampleFrostedDispersion(
                         TEXTURE2D_ARGS(_CameraOpaqueTexture, sampler_CameraOpaqueTexture),
                         screenUV + mainOffset, 
                         refractDirVS.xy, 
-                        _Dispersion * 0.5
+                        _Dispersion * 0.5,
+                        _Roughness
                     );
                     // Beer-Lambert
                     // 路径长度修正：视角越斜，路径越长
@@ -161,7 +173,9 @@ Shader "Custom/ShaderBase/Chapter10/Glass"
 
                     // Reflection
                     half3 reflectDirWS = reflect(-viewDirWS, normalWS);
-                    half3 reflectColor = SAMPLE_TEXTURECUBE(_Cubemap, sampler_Cubemap, reflectDirWS).rgb;
+                    // URP 默认环境贴图有 7 级 Mip，将 roughness 映射到 LOD 等级
+                    float lod = _Roughness * 7.0;
+                    half3 reflectColor = SAMPLE_TEXTURECUBE_LOD(_Cubemap, sampler_Cubemap, reflectDirWS, lod).rgb;
 
                     // Fresnel(Schlick)
                     float f0 = pow((1.0 - _IOR) / (1.0 + _IOR), 2);

@@ -90,6 +90,7 @@ Material:
     - _ReflectAmount: 1
     - _Reflectivity: 0.176
     - _RefractAmount: 1
+    - _Roughness: 0
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
