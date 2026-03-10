@@ -18,6 +18,13 @@ Shader "Cel-Shading/ToonBody"
         [Toggle] _UseRampShadow4 ("Use Ramp Shadow 4", Range(0, 1)) = 1 // 使用第4行Ramp阴影开关
         [Toggle] _UseRampShadow5 ("Use Ramp Shadow 5", Range(0, 1)) = 1 // 使用第5行Ramp阴影开关
 
+        [Header(Specular)]
+        [Toggle(_USE_SPECULAR)] _UseSpecular ("Enable Specular", Float) = 1
+        _SpecularColor ("Specular Color", Color) = (1, 1, 1, 1)
+        _Shininess ("Shininess", Range(8, 256)) = 32
+        _SpecularThreshold ("Specular Threshold", Range(0, 1)) = 0.5 // 控制高光大小
+        _SpecularSoftness ("Specular Softness", Range(0, 0.5)) = 0.05 // 控制高光边缘软硬
+
         [Header(Lighting Options)]
         _DayOrNight ("Day Or Night", Range(0, 1)) = 0 // 日夜切换参数
 
@@ -50,6 +57,7 @@ Shader "Cel-Shading/ToonBody"
 
             #pragma shader_feature_local _USE_LIGHTMAP_AO // A0开关
             #pragma shader_feature_local _USE_RAMP_SHADOW // 色阶阴影开关
+            #pragma shader_feature_local _USE_SPECULAR // 高光开关
             #pragma shader_feature_local _USE_RIM // 轮廓光开关
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl" // 核心库
@@ -65,6 +73,12 @@ Shader "Cel-Shading/ToonBody"
                 float _UseRampShadow3;
                 float _UseRampShadow4;
                 float _UseRampShadow5;
+
+                // Specular
+                float4 _SpecularColor;
+                float _Shininess;
+                float _SpecularThreshold;
+                float _SpecularSoftness;
 
                 // Lighting Options
                 float _DayOrNight;
@@ -179,7 +193,9 @@ Shader "Cel-Shading/ToonBody"
                     half3 N = normalize(input.normalWS);
                     half3 L = normalize(light.direction);
                     half3 V = normalize(GetWorldSpaceViewDir(input.positionWS));
+                    half3 H = normalize(L + V); // 半角向量
                     half NoL = dot(N, L);
+                    half NoH = saturate(dot(N, H));
                     half NoV = saturate(dot(N, V));
 
                     // Texture Info
@@ -226,6 +242,20 @@ Shader "Cel-Shading/ToonBody"
                         half3 finalColor = baseMap.rgb * halflambert * (shadow + 0.2);
                     #endif
 
+                    // Specular
+                    half3 specularColor = half3(0, 0, 0);
+                    #if _USE_SPECULAR
+                        // 基础 Blinn-Phong 高光
+                        float specBase = pow(NoH, _Shininess);
+                        
+                        // 卡通化处理：通过 smoothstep 限制高光范围，使其边缘变硬
+                        // 使用 _SpecularThreshold 控制高光区域大小
+                        float specStep = smoothstep(_SpecularThreshold, _SpecularThreshold + _SpecularSoftness, specBase);
+                        
+                        // 高光通常只在受光面出现 (NoL > 0)
+                        specularColor = specStep * _SpecularColor.rgb * light.color * light.distanceAttenuation;
+                    #endif
+
                     //Rim Light
                     half3 rimLight = half3(0, 0, 0); // 初始化为0
                     #if _USE_RIM
@@ -238,6 +268,7 @@ Shader "Cel-Shading/ToonBody"
                         rimLight = rim * backLight * _RimColor.rgb * _RimIntensity;
                     #endif
 
+                    finalColor += specularColor;
                     finalColor += rimLight;
 
                     return float4(finalColor, 1);
