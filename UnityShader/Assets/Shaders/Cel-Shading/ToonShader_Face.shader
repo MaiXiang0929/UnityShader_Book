@@ -24,7 +24,7 @@ Shader "Cel-Shading/ToonFace"
     {
         Tags
         {
-            "RenderPipleLine" = "UniversalRenderPipleLine"
+            "RenderPipleLine" = "UniversalRenderPipeLine"
             "RenderType" = "Opaque"
         }
 
@@ -49,12 +49,7 @@ Shader "Cel-Shading/ToonFace"
 
             CBUFFER_START(UnityPerMaterial) // 每材质常量缓冲区开始
 
-                // Textures
-                sampler2D _BaseMap;
-
                 // Shadow Options
-                sampler2D _SDF;
-                sampler2D _ShadowMask;
                 float4 _ShadowColor;
 
                 // Head Direction
@@ -67,6 +62,14 @@ Shader "Cel-Shading/ToonFace"
                 float _FaceBlushStrength;
 
             CBUFFER_END
+
+            // Textures
+            TEXTURE2D(_BaseMap);
+            SAMPLER(sampler_BaseMap);
+            TEXTURE2D(_SDF);
+            SAMPLER(sampler_SDF);
+            TEXTURE2D(_ShadowMask);
+            SAMPLER(sampler_ShadowMask);
         
         ENDHLSL
 
@@ -129,8 +132,8 @@ Shader "Cel-Shading/ToonFace"
                     half3 headUpDir = normalize(_HeadUp);
 
                     // Texture Info
-                    half4 baseMap = tex2D(_BaseMap, input.uv0);
-                    half4 shadowMask = tex2D(_ShadowMask, input.uv0);
+                    half4 baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv0);
+                    half4 shadowMask = SAMPLE_TEXTURE2D(_ShadowMask,sampler_ShadowMask, input.uv0);
 
                     // Lambert
                     half lambert = NoL; // Lambert (-1, 1)
@@ -145,8 +148,8 @@ Shader "Cel-Shading/ToonFace"
                     half valueR = pow(1 - value * 2, 3); // 右侧阴影强度
                     half valueL = pow(value * 2 - 1, 3); // 左侧阴影强度
                     half mixValue = lerp(valueL, valueR, exposeRight); // 混合阴影强度
-                    half sdfLeft = tex2D(_SDF, half2(1 - input.uv0.x, input.uv0.y)).r; // 左侧距离场
-                    half sdfRight = tex2D(_SDF, input.uv0).r; // 右侧距离场
+                    half sdfLeft = SAMPLE_TEXTURE2D(_SDF, sampler_SDF, half2(1 - input.uv0.x, input.uv0.y)).r; // 左侧距离场
+                    half sdfRight = SAMPLE_TEXTURE2D(_SDF, sampler_SDF, input.uv0).r; // 右侧距离场
                     half mixSdf = lerp(sdfRight, sdfLeft, exposeRight); // 采样SDF纹理
                     half sdf = step(mixValue, mixSdf); // 计算硬边界阴影
                     sdf = lerp(0, sdf, step(0, dot(LpHeadHorizon, headForwardDir))); // 计算右侧阴影

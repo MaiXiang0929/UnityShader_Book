@@ -20,6 +20,13 @@ Shader "Cel-Shading/ToonBody"
 
         [Header(Lighting Options)]
         _DayOrNight ("Day Or Night", Range(0, 1)) = 0 // 日夜切换参数
+
+        [Header(Screen Space Rim)]
+        [Toggle(_USE_RIM)] _UseRim ("Enable Rim Light", Float) = 1 // 轮廓光开关
+        _RimColor ("Rim Color", Color) = (1,1,1,1)
+        _RimPower ("Rim Power", Range(0.5,8)) = 4
+        _RimIntensity ("Rim Intensity", Range(0,5)) = 1
+        _RimThreshold ("Rim Threshold", Range(0,1)) = 0.5
     }
     SubShader
     {
@@ -43,19 +50,14 @@ Shader "Cel-Shading/ToonBody"
 
             #pragma shader_feature_local _USE_LIGHTMAP_AO // A0开关
             #pragma shader_feature_local _USE_RAMP_SHADOW // 色阶阴影开关
+            #pragma shader_feature_local _USE_RIM // 轮廓光开关
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl" // 核心库
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl" // 光照库
 
             CBUFFER_START(UnityPerMaterial) // 每材质常量缓冲区开始
 
-                // Textures
-                sampler2D _BaseMap;
-                sampler2D _LightMap;
-
-
                 // Ramp Shadow
-                sampler2D _RampTex;
                 float _ShadowRampWidth;
                 float _ShadowPosition;
                 float _ShadowSoftness;
@@ -67,7 +69,23 @@ Shader "Cel-Shading/ToonBody"
                 // Lighting Options
                 float _DayOrNight;
 
+                // Screen Space Rim
+                float4 _RimColor;
+                float _RimPower;
+                float _RimIntensity;
+                float _RimThreshold;
+
             CBUFFER_END
+
+            // Textures
+            TEXTURE2D(_BaseMap);
+            SAMPLER(sampler_BaseMap);
+            TEXTURE2D(_LightMap);
+            SAMPLER(sampler_LightMap);
+            TEXTURE2D(_RampTex);
+            SAMPLER(sampler_RampTex);
+
+            
         
             // 官方版本的RampShadowID函数
             float RampShadowID(float input, float useShadow2, float useShadow3, float useShadow4, float useShadow5, 
@@ -124,7 +142,8 @@ Shader "Cel-Shading/ToonBody"
                     float4 positionCS : SV_POSITION;
                     float2 uv0 : TEXCOORD0;
                     float3 normalWS : TEXCOORD1;
-                    float4 color : TEXCOORD2;
+                    float3 positionWS : TEXCOORD2;
+                    float4 color : TEXCOORD3;
                 };
 
                 // 顶点着色器
@@ -135,6 +154,7 @@ Shader "Cel-Shading/ToonBody"
                     // position
                     VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
                     output.positionCS = vertexInput.positionCS;
+                    output.positionWS = vertexInput.positionWS;
 
                     // normal
                     VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(input.normalOS);
@@ -158,11 +178,13 @@ Shader "Cel-Shading/ToonBody"
                     // Normalize Vector
                     half3 N = normalize(input.normalWS);
                     half3 L = normalize(light.direction);
+                    half3 V = normalize(GetWorldSpaceViewDir(input.positionWS));
                     half NoL = dot(N, L);
+                    half NoV = saturate(dot(N, V));
 
                     // Texture Info
-                    half4 baseMap = tex2D(_BaseMap, input.uv0);
-                    half4 lightMap = tex2D(_LightMap, input.uv0);
+                    half4 baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv0);
+                    half4 lightMap = SAMPLE_TEXTURE2D(_LightMap,sampler_LightMap, input.uv0);
 
                     // Lambert
                     half lambert = NoL; // Lambert (-1, 1)
@@ -192,9 +214,9 @@ Shader "Cel-Shading/ToonBody"
                     half rampID = RampShadowID(lightMap.a, _UseRampShadow2, _UseRampShadow3, _UseRampShadow4, _UseRampShadow5, 1, 2, 3, 4, 5);
                     half rampV = 0.45 - (rampID - 1) * 0.1;
                     half2 rampDayUV = half2(rampU, rampV + 0.5);
-                    half3 rampDayColor = tex2D(_RampTex, rampDayUV).rgb;
+                    half3 rampDayColor = SAMPLE_TEXTURE2D(_RampTex,sampler_RampTex, rampDayUV).rgb;
                     half2 rampNightUV = half2(rampU, rampV);
-                    half3 rampNightColor = tex2D(_RampTex, rampNightUV).rgb;
+                    half3 rampNightColor = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, rampNightUV).rgb;
                     half3 rampColor = lerp(rampDayColor, rampNightColor, _DayOrNight);
 
                     // Merge Color
@@ -204,7 +226,21 @@ Shader "Cel-Shading/ToonBody"
                         half3 finalColor = baseMap.rgb * halflambert * (shadow + 0.2);
                     #endif
 
-                    return float4(finalColor.rgb, 1);
+                    //Rim Light
+                    half3 rimLight = half3(0, 0, 0); // 初始化为0
+                    #if _USE_RIM
+                        float rim = pow(1 - NoV, _RimPower);
+                        float backLight = step(0, -dot(N, L));
+                        rim *= backLight;
+                        rim = smoothstep(_RimThreshold, 1, rim);
+                        rim *= shadow;
+
+                        rimLight = rim * backLight * _RimColor.rgb * _RimIntensity;
+                    #endif
+
+                    finalColor += rimLight;
+
+                    return float4(finalColor, 1);
                 }
                 
             ENDHLSL
