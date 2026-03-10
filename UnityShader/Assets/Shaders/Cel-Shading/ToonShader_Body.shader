@@ -34,6 +34,11 @@ Shader "Cel-Shading/ToonBody"
         _RimPower ("Rim Power", Range(0.5,8)) = 4
         _RimIntensity ("Rim Intensity", Range(0,5)) = 1
         _RimThreshold ("Rim Threshold", Range(0,1)) = 0.5
+
+        [Header(Outline)]
+        [Toggle(_USE_OUTLINE)] _UseOutline ("Enable Outline", Float) = 1 // 描边开关
+        _OutlineColor ("Outline Color", Color) = (0, 0, 0, 1)
+        _OutlineWidth ("Outline Width", Range(0, 5)) = 0.2
     }
     SubShader
     {
@@ -59,6 +64,7 @@ Shader "Cel-Shading/ToonBody"
             #pragma shader_feature_local _USE_RAMP_SHADOW // 色阶阴影开关
             #pragma shader_feature_local _USE_SPECULAR // 高光开关
             #pragma shader_feature_local _USE_RIM // 轮廓光开关
+            #pragma shader_feature_loca _USE_OUTLINE // 描边开关
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl" // 核心库
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl" // 光照库
@@ -128,6 +134,69 @@ Shader "Cel-Shading/ToonBody"
             }
 
         ENDHLSL
+        
+        Pass
+        {
+            Name "Outline"
+            Tags { "LightMode" = "SRPDefaultUnlit" } // URP 默认未着色光照模式
+            Cull Front // 剔除正面，只画背面
+            ZWrite On
+
+            HLSLPROGRAM
+            #pragma vertex OutlineVertex
+            #pragma fragment OutlineFragment
+            #pragma shader_feature_local _USE_OUTLINE
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            float _OutlineWidth;
+            float4 _OutlineColor;
+
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float3 normalOS : NORMAL;
+                float4 color : COLOR; // 获取顶点色
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+            };
+
+            Varyings OutlineVertex(Attributes input)
+            {
+                Varyings output;
+                
+                #if _USE_OUTLINE
+                    // 1. 转换到世界空间
+                    float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
+                    float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
+                    
+                    // 2. 距离修正（让远近描边看起来粗细均匀）
+                    float dist = distance(_WorldSpaceCameraPos, positionWS);
+                    float width = _OutlineWidth * 0.01 * (dist * 0.1 + 1.0); 
+
+                    // 3. 顶点色控制描边粗细 (使用顶点色 Alpha 通道)
+                    width *= input.color.a; 
+
+                    // 4. 沿法线挤出
+                    positionWS += normalWS * width;
+                    output.positionCS = TransformWorldToHClip(positionWS);
+                #else
+                    // 如果关闭描边，把顶点缩减到 0，不渲染
+                    output.positionCS = float4(0, 0, 0, 0);
+                #endif
+                
+                return output;
+            }
+
+            half4 OutlineFragment(Varyings input) : SV_TARGET
+            {
+                return _OutlineColor;
+            }
+            ENDHLSL
+        }
 
         Pass
         {
