@@ -124,7 +124,7 @@ Shader "Cel-Shading/ToonBody"
                     float4 positionCS : SV_POSITION;
                     float2 uv0 : TEXCOORD0;
                     float3 normalWS : TEXCOORD1;
-                    float color : TEXCOORD2;
+                    float4 color : TEXCOORD2;
                 };
 
                 // 顶点着色器
@@ -192,9 +192,9 @@ Shader "Cel-Shading/ToonBody"
                     half rampID = RampShadowID(lightMap.a, _UseRampShadow2, _UseRampShadow3, _UseRampShadow4, _UseRampShadow5, 1, 2, 3, 4, 5);
                     half rampV = 0.45 - (rampID - 1) * 0.1;
                     half2 rampDayUV = half2(rampU, rampV + 0.5);
-                    half3 rampDayColor = tex2D(_RampTex, rampDayUV);
+                    half3 rampDayColor = tex2D(_RampTex, rampDayUV).rgb;
                     half2 rampNightUV = half2(rampU, rampV);
-                    half3 rampNightColor = tex2D(_RampTex, rampNightUV);
+                    half3 rampNightColor = tex2D(_RampTex, rampNightUV).rgb;
                     half3 rampColor = lerp(rampDayColor, rampNightColor, _DayOrNight);
 
                     // Merge Color
