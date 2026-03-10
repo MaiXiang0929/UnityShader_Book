@@ -24,6 +24,9 @@ Shader "Cel-Shading/ToonBody"
         _Shininess ("Shininess", Range(8, 256)) = 32
         _SpecularThreshold ("Specular Threshold", Range(0, 1)) = 0.5 // 控制高光大小
         _SpecularSoftness ("Specular Softness", Range(0, 0.5)) = 0.05 // 控制高光边缘软硬
+        // Metal Specular
+        _MetalIntensity ("Metal Intensity", Range(0, 5)) = 1.0
+        _MetalShininess ("Metal Shininess", Range(8, 512)) = 256 // 金属高光通常更聚集
 
         [Header(Lighting Options)]
         _DayOrNight ("Day Or Night", Range(0, 1)) = 0 // 日夜切换参数
@@ -85,6 +88,8 @@ Shader "Cel-Shading/ToonBody"
                 float _Shininess;
                 float _SpecularThreshold;
                 float _SpecularSoftness;
+                float _MetalIntensity;
+                float _MetalShininess;
 
                 // Lighting Options
                 float _DayOrNight;
@@ -135,7 +140,7 @@ Shader "Cel-Shading/ToonBody"
 
         ENDHLSL
         
-        Pass
+        Pass // 描边
         {
             Name "Outline"
             Tags { "LightMode" = "SRPDefaultUnlit" } // URP 默认未着色光照模式
@@ -198,7 +203,7 @@ Shader "Cel-Shading/ToonBody"
             ENDHLSL
         }
 
-        Pass
+        Pass // 主光照
         {
             Name "UniversalForward"
             Tags { "LightMode" = "UniversalForward" }
@@ -312,17 +317,29 @@ Shader "Cel-Shading/ToonBody"
                     #endif
 
                     // Specular
-                    half3 specularColor = half3(0, 0, 0);
+                    half3 finalSpecular = half3(0, 0, 0);
                     #if _USE_SPECULAR
+                        //获取金属度遮罩 (从 LightMap 的 R 通道读取)    
+                        float metalMask = lightMap.r;
                         // 基础 Blinn-Phong 高光
                         float specBase = pow(NoH, _Shininess);
-                        
                         // 卡通化处理：通过 smoothstep 限制高光范围，使其边缘变硬
                         // 使用 _SpecularThreshold 控制高光区域大小
                         float specStep = smoothstep(_SpecularThreshold, _SpecularThreshold + _SpecularSoftness, specBase);
+                        half3 regularSpec = specStep * _SpecularColor.rgb;
+
+                        // 金属高光(特点：高倍率 Shininess，且颜色受 BaseMap 影响)
+                        float metalSpecBase = pow(NoH, _MetalShininess);
+                        float metalSpecStep = smoothstep(_SpecularThreshold, _SpecularThreshold + _SpecularSoftness, metalSpecBase);
+                        // 金属高光的颜色 = 基础贴图颜色 * 强度
+                        half3 metalSpecColor = baseMap.rgb * _MetalIntensity; 
+                        half3 metalSpec = metalSpecStep * metalSpecColor;
+
+                        // 根据遮罩混合两种高光
+                        finalSpecular = lerp(regularSpec, metalSpec, metalMask);
                         
-                        // 高光通常只在受光面出现 (NoL > 0)
-                        specularColor = specStep * _SpecularColor.rgb * light.color * light.distanceAttenuation;
+                        // 结合光照信息 高光通常只在受光面出现 (NoL > 0)
+                        finalSpecular *= light.color * light.distanceAttenuation * step(0.001, NoL);
                     #endif
 
                     //Rim Light
@@ -337,7 +354,7 @@ Shader "Cel-Shading/ToonBody"
                         rimLight = rim * backLight * _RimColor.rgb * _RimIntensity;
                     #endif
 
-                    finalColor += specularColor;
+                    finalColor += finalSpecular;
                     finalColor += rimLight;
 
                     return float4(finalColor, 1);
