@@ -3,7 +3,7 @@ Shader "Custom/ShaderBase/Chapter11/ImageSequenceAnimation"
     Properties
     {
         _Color ("Color", Color) = (1,1,1,1)
-        _BaseMap ("Albedo (RGB)", 2D) = "white" {}
+        _BaseMap ("Image Sequence", 2D) = "white" {}
         _HorizontalAmount ("Horizontal Amount", Float) = 4
         _VerticalAmount ("Vertical Amount", Float) = 4
         _Speed ("Speed", Range(0, 100)) = 30
