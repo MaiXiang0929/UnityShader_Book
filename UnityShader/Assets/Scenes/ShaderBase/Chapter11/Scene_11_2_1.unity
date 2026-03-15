@@ -134,6 +134,7 @@ GameObject:
   - component: {fileID: 349172036}
   - component: {fileID: 349172035}
   - component: {fileID: 349172034}
+  - component: {fileID: 349172038}
   m_Layer: 0
   m_Name: Quad
   m_TagString: Untagged
@@ -222,12 +223,27 @@ Transform:
   m_GameObject: {fileID: 349172033}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.39985967, y: -0.5325798, z: 0.4031963}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0.39, y: -0.538, z: 7.5629997}
+  m_LocalScale: {x: 9.283937, y: 4.2876287, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &349172038
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 349172033}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bc716109fa9b8b42a5f83c21860cd96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetCamera: {fileID: 511162524}
+  distance: 10
+  followCamera: 1
 --- !u!1 &511162522
 GameObject:
   m_ObjectHideFlags: 0
