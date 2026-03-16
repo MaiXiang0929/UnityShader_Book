@@ -5,7 +5,7 @@ Shader "Custom/ShaderBase/Chapter11/Water"
         _MainTex ("Main Tex", 2D) = "white" {}
         _Color ("Color Tint", Color) = (1,1,1,1)
         _Magnitude ("Distortion Magnitude", Float) = 1
-        _Frequency ("Diatortion Frequency", Float) = 1
+        _Frequency ("Distortion Frequency", Float) = 1
         _InvWaveLength ("Distortion Inverse Wave Length", Float) = 10
         _Speed ("Speed", Float) = 0.5
     }
@@ -36,7 +36,7 @@ Shader "Custom/ShaderBase/Chapter11/Water"
 
         Pass
         {
-            Tags {"LightMode" = "UniversalForWard"}
+            Tags {"LightMode" = "UniversalForward"}
 
             ZWrite Off
             Blend SrcAlpha OneMinusSrcAlpha
@@ -66,7 +66,7 @@ Shader "Custom/ShaderBase/Chapter11/Water"
                     offset.yzw = float3(0.0, 0.0, 0.0);
                     offset.x = sin(_Frequency * _Time.y + input.positionOS.x * _InvWaveLength + input.positionOS.y * _InvWaveLength + input.positionOS.z * _InvWaveLength) * _Magnitude;
 
-                    output.positionCS = TransformObjectToHClip(input.positionOS.xyz + offset);
+                    output.positionCS = TransformObjectToHClip(input.positionOS + offset);
 
                     output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                     output.uv += float2(0.0, _Time.y * _Speed);
