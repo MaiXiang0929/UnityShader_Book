@@ -1,4 +1,4 @@
-Shader "Custom/ScrollingBackground"
+Shader "Custom/ShaderBase/Chapter11/ScrollingBackground"
 {
     Properties
     {

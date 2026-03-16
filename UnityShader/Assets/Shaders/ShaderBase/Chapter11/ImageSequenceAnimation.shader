@@ -93,5 +93,5 @@ Shader "Custom/ShaderBase/Chapter11/ImageSequenceAnimation"
         }
     }
     Fallback "Hidden/Universal Render Pipeline/FallbackError"
-    // Fallback "Unlit/Texture"
+    // FallBack "Universal Render Pipeline/Unlit"
 }
