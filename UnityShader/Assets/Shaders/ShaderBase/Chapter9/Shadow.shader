@@ -130,13 +130,14 @@ Shader "Custom/ShaderBase/Chapter9/Shadow"
 
             ZWrite On
             ZTest LEqual
-            ColorMask 0
+            ColorMask 0 // 不往颜色缓冲（屏幕）写任何东西
 
             HLSLPROGRAM
             #pragma vertex ShadowPassVertex
             #pragma fragment ShadowPassFragment
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             struct ShadowAttributes
             {
