@@ -1,0 +1,357 @@
+\documentclass[twoside, 11pt, a4paper]{article}
+
+% --- 基础宏包 ---
+% \usepackage[utf8]{inputenc}         % 支持UTF-8编码 (现代TeX引擎默认支持，通常不需要)
+\usepackage[T1]{fontenc}            % 改进字体渲染
+\usepackage[UTF8]{ctex}             
+% Windows系统下使用UTF-8编码的中文支持，提供中文字体和排版功能（默认中文字为宋体）
+% macOS系统下使用UTF-8编码的中文支持，提供中文字体和排版功能（默认中文字为华文宋体）
+% Linux系统下使用UTF-8编码的中文支持，提供中文字体和排版功能（默认中文字为文泉驿正黑）
+\usepackage{tocloft}                % 目录格式控制  
+\usepackage{titlesec}               % 标题格式控制
+\usepackage{geometry}               % 页面布局控制
+\usepackage{fontspec}               % 允许调用系统字体
+\usepackage{xcolor}                 % 颜色支持
+\usepackage{amsmath, amssymb}       % TA必备：处理矩阵、向量、渲染方程
+\usepackage{bm}                     % 加粗数学符号（常用于表示向量）
+\usepackage{listings}               % 核心代码显示包
+\usepackage{indentfirst}            % 强制首行缩进
+\usepackage{graphicx}               % 插入渲染截图
+\usepackage{hyperref}               % 启用文档内及外部链接跳转
+\usepackage{zhnumber}               % 支持中文数字（如“第一章”中的“第一”）
+\usepackage{caption}
+\usepackage{bicaption}              % 核心：支持中英文双语题注
+\usepackage{subcaption}             % 支持分图 (a)(b)
+\usepackage{booktabs}               % 核心：提供 \toprule, \midrule, \bottomrule 实现三线表
+\usepackage{fancyhdr}               % 页眉页脚设置
+\usepackage{emptypage}              % 使空白页没有页眉页脚（适用于双面打印时的空白页）
+\usepackage{titling}                % 允许自定义标题页格式
+
+% --- 页面布局 ---
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+\setlength{\parindent}{2em} % 设置首行缩进为2个中文字符宽度（即4个字符空格）
+
+% --- 字号定义 (对应中国标准字号) ---
+% \zihao{3} 是三号, \zihao{-3} 是小三, 以此类推
+\setmainfont{Times New Roman}   % 设置西文字体为 Times New Roman
+\setCJKmainfont{SimSun}[AutoFakeBold = 2.5] % 设置中文字体为宋体，并启用伪粗体（加粗程度可调）
+% 字号定义
+\newcommand{\erhao}{\zihao{2}}
+\newcommand{\sanhao}{\zihao{3}}
+\newcommand{\xiaosan}{\zihao{-3}}
+\newcommand{\sihao}{\zihao{4}}
+\newcommand{\xiaosi}{\zihao{-4}}
+\newcommand{\wuhao}{\zihao{5}}
+\newcommand{\headerfont}{\wuhao\kaishu} % 页眉字体：五号楷体
+
+% --- 配置页眉页脚 ---
+\pagestyle{fancy}
+\fancyhf{} % 清除所有默认设置
+
+% 单号页 (Odd) 居中 (Center)：显示固定文本
+\fancyhead[OC]{\headerfont 硕士学位论文}
+
+% 双号页 (Even) 居中 (Center)：显示当前一级标题
+% \leftmark 通常存储最近的一个 \section 内容
+% 优化页眉标题抓取，显示第x章
+\renewcommand{\sectionmark}[1]{%
+  \markboth{第\thesection 章\quad #1}{}%
+}
+\fancyhead[EC]{\headerfont \leftmark}
+
+% 设置页码（可选，通常居中显示在页脚）
+\fancyfoot[C]{\headerfont \thepage}
+
+% 去掉页眉下方的装饰横线（如果需要留着，设为 0.4pt）
+\renewcommand{\headrulewidth}{0.4pt}
+
+% 优化标题提取样式
+% 默认的 \leftmark 带有“第x节”编号，如果你只想显示标题文字，取消下一行注释
+% \renewcommand{\sectionmark}[1]{\markboth{#1}{}}
+
+% --- 目录样式设置 ---
+% 目录标题格式
+\renewcommand{\contentsname}{
+    \begin{center}
+        \xiaosan\songti 目\qquad 录
+    \end{center}
+}
+\renewcommand{\cftaftertoctitle}{\vspace{2em}} % 目录标题后空两行
+% 目录只显示到三级标题
+\setcounter{tocdepth}{3}
+% 编号深度
+\setcounter{secnumdepth}{3}
+
+% 编号格式
+\renewcommand{\thesection}{\zhnum{section}}
+\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
+
+% 一级标题（章）在目录中的样式：四号黑体，不缩进
+\renewcommand{\cftsecfont}{\sihao\heiti}         % 目录条目文字字体
+\renewcommand{\cftsecpagefont}{\sihao\heiti}     % 目录页码字体
+\setlength{\cftsecindent}{0em}                   % 左侧缩进
+\setlength{\cftsecnumwidth}{5em}                 % 编号宽度（留够“第1章”的空间）
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}} % 确保一级标题也有引导点
+% 修正目录中一级标题的编号显示为“第X章”
+\renewcommand{\cftsecpresnum}{第}      % 前缀只写“第”
+\renewcommand{\cftsecaftersnum}{章\quad} % 后缀写“章”加空格
+
+% 二级标题（节）在目录中的样式：小四号宋体，左空2字符
+\renewcommand{\cftsubsecfont}{\xiaosi\songti}
+\renewcommand{\cftsubsecpagefont}{\xiaosi\songti}
+\setlength{\cftsubsecindent}{2em}                % 缩进2字符
+\setlength{\cftsubsecnumwidth}{2em}
+
+% 三级标题（小节）在目录中的样式：小四号宋体，左空4字符
+\renewcommand{\cftsubsubsecfont}{\xiaosi\songti}
+\renewcommand{\cftsubsubsecpagefont}{\xiaosi\songti}
+\setlength{\cftsubsubsecindent}{4em}             % 缩进4字符
+\setlength{\cftsubsubsecnumwidth}{3em}
+
+% --- 论文正文格式 ---
+% 一级标题（章）格式：
+\titleformat{\section}
+  {\centering\sanhao\songti} % 居中 (\centering)、三号 (\sanhao)、宋体 (\songti)
+  {第\thesection 章}    % 第X章
+  {24pt} % 编号与标题之间的距离，小四号（12pt）字号下两个字符空格的长度为24pt
+  {}
+
+% 二级标题（节）格式：
+\titleformat{\subsection}
+  {\sihao\songti\bfseries} % 四号 (\sihao)、宋体 (\songti)、加粗居左
+  {\thesubsection }    % 1.1
+  {24pt} % 编号与标题之间的距离，小四号（12pt）字号下两个字符空格的长度为24pt
+  {}
+
+% 三级标题（小节）格式：
+\titleformat{\subsubsection}
+  {\xiaosi\songti} % 小四 (\xiaosi)、宋体 (\songti)、居左
+  {\thesubsubsection}   % 1.1.1
+  {2em} % 编号与标题之间的距离，小四号（12pt）字号下两个字符空格的长度为24pt
+  {}
+
+% --- 图号按章编号，格式为 图1-1 ---
+\renewcommand{\thefigure}{\arabic{section}-\arabic{figure}} 
+\captionsetup{labelsep=quad} % 编号与文字间空一个全角空格
+
+% % 定义中英文图题字体
+% 中文：五号宋体 (\wuhao\songti)
+% 英文：五号 Times New Roman (\wuhao\rmfamily)
+\DeclareCaptionFont{chinese}{\wuhao\songti}
+\DeclareCaptionFont{english}{\wuhao\rmfamily}
+\captionsetup[bi-first]{
+    font=chinese,
+    textfont=normalfont,
+    name={图},
+}
+\captionsetup[bi-second]{
+    font=english,
+    textfont=normalfont,
+    name={Fig.},
+}
+
+% --- 表号按章编号，格式为 表1-1 ---
+\renewcommand{\thetable}{\arabic{section}-\arabic{table}} 
+
+% 定义表格题注样式
+\DeclareCaptionFont{chinese}{\wuhao\songti}
+\DeclareCaptionFont{english}{\wuhao\rmfamily}
+\captionsetup[table][bi-first]{
+    font=chinese,
+    name={表},
+    labelsep=quad
+}
+\captionsetup[table][bi-second]{
+    font=english,
+    name={Table},
+    labelsep=quad
+}
+% 设置题注在表格上方（符合国家标准）
+\captionsetup[table]{position=top, skip=5pt}
+
+% --- 设计与色彩 ---
+\definecolor{codeblue}{RGB}{45, 156, 219}
+\definecolor{codegreen}{RGB}{34, 139, 34}
+\definecolor{backcolour}{RGB}{245, 245, 245}
+
+% --- 代码块配置 (listings) ---
+\lstset{
+    backgroundcolor=\color{backcolour},  % 背景色
+    commentstyle=\color{codegreen},      % 注释颜色
+    keywordstyle=\color{codeblue},       % 关键字颜色
+    numberstyle=\tiny\color{gray},       % 行号样式
+    basicstyle=\ttfamily\small,          % 等宽字体
+    breaklines=true,                     % 自动换行
+    captionpos=b,                        % 标题位置：底部
+    frame=single,                        % 代码框样式
+    showstringspaces=false               % 不显示字符串中的空格
+    extendedchars=false,                 % 解决代码跨页可能导致的编译错误
+    keepspaces=true,                     % 保持空格
+    columns=flexible,                    % 解决代码中英混排时间距过大的问题
+}
+
+% --- 图片与超链接 ---
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=cyan}
+
+% --- 文档信息 ---
+% 变量赋值，不会显示在文档中，但可以在后续使用
+\title{\textbf{技术美术（TA）学习笔记}} % textbf{} 加粗
+\author{Technical Artist}
+\date{2026年3月22日}
+
+% -------------------- 正文开始 --------------------
+\begin{document}
+\xiaosi % 这里开启全局小四号字体设置，后续正文内容将默认使用小四号字体，除非在局部重新定义。
+% -------------------- 标题页开始 
+\begin{titlepage}
+    \pagenumbering{gobble} % 这一页不计页码
+    \vspace*{\fill}       % 顶部弹簧
+    
+    \begin{center}
+        {\sanhao\bfseries 技术美术（TA）学习笔记 \par} % 标题
+        \vspace{2em}
+        {\sihao Technical Artist \par}               % 作者
+        \vspace{1em}
+        {\sihao 2026年3月22日 \par}                  % 日期
+    \end{center}
+    
+    \vspace*{\fill}       % 底部弹簧
+\end{titlepage}
+% -------------------- 标题页结束
+
+
+
+% -------------------- 中文摘要部分开始 
+\cleardoublepage % 确保摘要页从右侧（单数页）开始
+\pagenumbering{Roman} % 页码：大写罗马 I, II...
+\phantomsection % 创建一个锚点，使得目录中的链接能够正确跳转到摘要页
+\addcontentsline{toc}{section}{摘要} % 将“摘要”加入目录，作为一级标题（section）显示
+% \begin{center}
+% \end{center}
+% 将其内部包含的所有内容（文字、图片、公式等）在页面水平方向上居中对齐。
+\begin{center}
+    % “摘要”二字（小三号宋体），摘要二字间用二个字符空格分开
+    {\xiaosan\songti 摘\qquad 要} % 小三号宋体，中间两个全角空格（\quad 是一个字符宽度、\qquad 是两个字符宽度）
+\end{center}
+
+\vspace{1em} % 下空一行
+
+{ % ******摘要内容（默认小四号宋体）
+本文档内容主要涵盖了二次元（NPR）渲染核心、引擎底层与性能优化、数字内容创作（DCC）工具与自动化、数学与逻辑基础等方面的知识点，旨在为技术美术（TA）提供一个系统的学习笔记。
+}
+
+\vspace{1em} % 下空一行
+
+%左对齐打印“关键词”三字（五号宋体加粗）
+\noindent % 关键词行取消缩进，实现左对齐
+{\wuhao\textbf {关键词：}} % 五号宋体加粗
+{\wuhao\songti 渲染管线\qquad 材质Shader\qquad 性能优化\qquad HLSL算法} % 关键词（五号宋体）每一关键词后之间用二个字符空格分开，最后一个关键词后不打标点符号
+
+% -------------------- 中文摘要部分结束 
+
+
+
+% -------------------- 英文摘要部分开始 
+\cleardoublepage % 确保英文摘要页从右侧（单数页）开始
+\pagenumbering{roman} % 页码：小写罗马 i, ii...
+\phantomsection % 创建一个锚点，使得目录中的链接能够正确跳转到英文摘要页
+% \addcontentsline{toc}{section}{ABSTRACT} % 将“ABSTRACT”加入目录，作为一级标题（section）显示
+
+\begin{center}
+    % ABSTRACT (大写), Times New Roman 四号加粗
+    {\sihao\bfseries ABSTRACT} 
+\end{center}
+
+\addcontentsline{toc}{section}{\protect\rmfamily\bfseries ABSTRACT}
+
+
+\vspace{1em} % 下空一行
+
+{% ******英文摘要内容：首行缩进四个字符空格，Times New Roman 小四号字体
+\xiaosi The content of this document mainly covers knowledge points in aspects such as the core of Non-Photorealistic Rendering(NPR), the engine bottom layer and performance optimization, digital content creation (DCC) tools and automation, and mathematical and logical foundations. It aims to provide a systematic learning notebook for technical artists (TA).
+}
+
+\vspace{1em} % 下空一行
+
+% 3. KEYWORDS：小四号加粗，关键词内容不加粗
+\noindent 
+{\xiaosi\bfseries KEYWORDS:} 
+{\xiaosi Rendering Pipeline；Shader Material；Performance Optimization；HLSL Algorithm}
+% 每个关键词首字母大写，用全角分号“；”隔开，末尾无标点
+% -------------------- 英文摘要部分结束 
+
+
+
+% -------------------- 目录页开始 --------------------
+\cleardoublepage
+\pagestyle{fancy}   
+\pagenumbering{gobble}
+
+% 1. 手动强制更新标记，确保 \leftmark 内容为“目  录”
+\markboth{目\qquad 录}{目\qquad 录}
+
+% 2. 针对目录页，将偶数页居中也改为“目  录”
+% 这样无论目录有几页，双号页都会显示“目  录”
+\fancyhead[EC]{\headerfont 目\quad 录} 
+
+\addtocontents{toc}{\protect\thispagestyle{fancy}}
+\tableofcontents
+
+\cleardoublepage
+% 3. 目录结束，切回正文前，把偶数页页眉改回动态抓取模式
+\fancyhead[EC]{\headerfont \leftmark}
+
+% -------------------- 目录页结束 --------------------
+
+
+
+% -------------------- 正文内容部分开始 
+
+\pagenumbering{arabic} % 页码：阿拉伯数字 1, 2...
+
+% ******第一章
+\section{二次元核心渲染}
+
+% ******第一节
+\subsection{核心渲染算法}
+
+% % 图片示例：插入一张名为“1-1.png”的图片，宽度占页面宽度的80%，并添加双语图题
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{1-1.png} % 图片文件名为“1-1.png”，请确保该图片文件与.tex文件在同一目录下，或者提供正确的路径
+    
+%     % 双语图题：{中文}{英文}
+%     \bicaption{渲染管线流程图}{Flowchart of rendering pipeline}
+    
+%     % 在图题下方标注文献来源，如有取消注释
+%     % \centering{\small 来源：参考文献[12]} 
+% \end{figure}
+
+% % 表格示例：
+% \begin{table}[htbp]
+%     \centering
+%     % 中英文对照标题
+%     \bicaption{Unity 常用渲染路径性能对比}{Performance comparison of common rendering paths in Unity}
+%     \label{tab:render_compare}
+    
+%     \begin{tabular}{@{} lcc @{}} % @{} 用于去除表格两端的额外边距
+%         \toprule
+%         渲染路径 (Path) & 动态光源支持 & 内存开销 (VRAM) \\
+%         \midrule
+%         前向渲染 (Forward) & 较少 & 低 \\
+%         延迟渲染 (Deferred) & 极多 & 高 \\
+%         分块渲染 (Forward+) & 较多 & 中 \\
+%         \bottomrule
+%     \end{tabular}
+% \end{table}
+
+% ******第一小节
+\subsubsection{多分色阴影}
+
+{% ******文章内容：
+
+}
+
+
+\end{document}
