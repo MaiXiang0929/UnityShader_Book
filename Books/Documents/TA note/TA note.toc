@@ -1,6 +1,0 @@
-\contentsline {section}{摘要}{I}{section*.1}%
-\contentsline {section}{\rmfamily \bfseries ABSTRACT}{i}{section*.2}%
-\thispagestyle {fancy}
-\contentsline {section}{\numberline {一}二次元核心渲染}{1}{section.1}%
-\contentsline {subsection}{\numberline {1.1}核心渲染算法}{1}{subsection.1.1}%
-\contentsline {subsubsection}{\numberline {1.1.1}多分色阴影}{1}{subsubsection.1.1.1}%
