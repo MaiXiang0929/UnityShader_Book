@@ -1,0 +1,196 @@
+Shader "Custom/ShaderBase/Chapter10/Glass"
+{
+    Properties
+    {
+        [Header(Surface)]
+        _BaseMap("Base Map", 2D) = "white" {}
+        _BumpMap("Normal Map", 2D) = "bump" {}
+        _Cubemap("Environment Cubemap", Cube) = "_Skybox" {}
+        _Roughness("Roughness (Frosting)", Range(0, 1.0)) = 0.1
+
+        [Header(Refraction)]
+        _Distortion("Distortion", Range(0, 10)) = 10
+        _IOR("Index of Refraction", Range(1.0, 2.0)) = 1.5
+
+        [Header(Dispersion)]
+        // 控制 RGB 三通道 IOR 的差值程度。
+        _Dispersion("Dispersion Strength", Range(0, 0.1)) = 0.02
+
+        [Header(Beer Lambert Law)]
+        _Thickness("Thickness", Range(0, 5)) = 0.5
+        _TargetColor("Target Color", Color) = (1.0, 1.0, 1.0, 1.0)
+    }
+
+    SubShader
+    {
+        Tags
+        {
+            "RenderType" = "Transparent"
+            "Queue" = "Transparent"
+            "RenderPipeline" = "UniversalPipeline"
+        }
+
+        HLSLINCLUDE
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float _Distortion;
+                float _IOR;
+                float _Thickness;
+                float4 _TargetColor;
+                float _Dispersion;
+                float _Roughness;
+            CBUFFER_END
+
+            TEXTURE2D(_BaseMap);
+            SAMPLER(sampler_BaseMap);
+            TEXTURE2D(_BumpMap);
+            SAMPLER(sampler_BumpMap);
+            TEXTURECUBE(_Cubemap);
+            SAMPLER(sampler_Cubemap);
+            TEXTURE2D(_CameraOpaqueTexture);
+            SAMPLER(sampler_CameraOpaqueTexture);
+        ENDHLSL
+
+        Pass
+        {
+            Name "ForwardLit"
+            Tags {"LightMode" = "UniversalForward"}
+
+            ZWrite Off
+            Blend SrcAlpha OneMinusSrcAlpha
+
+            HLSLPROGRAM
+                #pragma vertex vert
+                #pragma fragment frag
+
+                struct Attributes
+                {
+                    float4 positionOS : POSITION;
+                    float2 uv : TEXCOORD0;
+                    float3 normalOS : NORMAL;
+                    float4 tangentOS : TANGENT;
+                };
+
+                struct Varyings
+                {
+                    float4 positionCS : SV_POSITION;
+                    float2 uv : TEXCOORD0;
+                    float4 screenPos : TEXCOORD1;
+                    float3 positionWS : TEXCOORD2;
+                    float3 normalWS : TEXCOORD3;
+                    float3 tangentWS : TEXCOORD4;
+                    float3 bitangentWS : TEXCOORD5;
+                };
+
+                Varyings vert(Attributes input)
+                {
+                    Varyings output = (Varyings)0;
+
+                    // position
+                    VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
+                    output.positionWS = vertexInput.positionWS;
+                    output.positionCS = vertexInput.positionCS;
+
+                    // uv
+                    output.uv = input.uv;
+
+                    // screenpos
+                    output.screenPos = ComputeScreenPos(output.positionCS);
+
+                    // normal
+                    VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
+                    output.normalWS = normalInput.normalWS;
+                    output.tangentWS = normalInput.tangentWS;
+                    output.bitangentWS = normalInput.bitangentWS;
+
+                    return output;
+                }
+
+                // 生成简易伪随机噪点
+                float Hash(float2 p) {
+                    return frac(sin(dot(p, float2(12.71, 311.7))) * 43758.5453123);
+                }
+
+                // 色散采样函数
+                // 使用 URP 宏以支持不同平台的纹理采样规范
+                half3 SampleFrostedDispersion(TEXTURE2D_PARAM(tex, smp), float2 uv, float2 offsetDir, float strength, float roughness)
+                {
+                    float noise = Hash(uv) * 2.0 - 1.0;
+                    float2 jitter = offsetDir * roughness * noise * 0.5; // 粗糙度决定抖动范围
+                    float2 finalUV = uv + jitter;
+                    float2 offset = offsetDir * strength;
+                    half3 color;
+                    color.r = SAMPLE_TEXTURE2D(tex, smp, finalUV + offset).r;
+                    color.g = SAMPLE_TEXTURE2D(tex, smp, finalUV).g;
+                    color.b = SAMPLE_TEXTURE2D(tex, smp, finalUV - offset).b;
+                    return color;
+                }
+
+                half4 frag(Varyings input) : SV_Target
+                {
+                    // Textur Info
+                    half4 albedoMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
+                    half4 normalMap = SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, input.uv);
+
+                    // Normalize Vector
+                    float3 n = normalize(input.normalWS);
+                    float3 t = normalize(input.tangentWS);
+                    float3 b = normalize(input.bitangentWS);
+                    float3x3 TBN = float3x3(t, b, n);
+
+                    half3 normalTS = UnpackNormal(normalMap);
+                    half3 normalWS = TransformTangentToWorld(normalTS, TBN);
+                    half3 viewDirWS = normalize(GetWorldSpaceViewDir(input.positionWS));
+
+                    // Albedo
+                    half3 albedo = albedoMap.rgb;
+
+                    // Refraction
+                    // IOR
+                    float eta = 1.0 / _IOR;
+                    float3 refractDirWS = refract(-viewDirWS, normalWS, eta);
+                    float3 refractDirVS = TransformWorldToViewDir(refractDirWS);
+                    float2 screenUV = input.screenPos.xy / input.screenPos.w;
+                    float2 mainOffset = refractDirVS.xy * _Distortion * _Thickness * 0.01;
+                    // Dispersion
+                    half3 refractColor = SampleFrostedDispersion(
+                        TEXTURE2D_ARGS(_CameraOpaqueTexture, sampler_CameraOpaqueTexture),
+                        screenUV + mainOffset, 
+                        refractDirVS.xy, 
+                        _Dispersion * 0.5,
+                        _Roughness
+                    );
+                    // Beer-Lambert
+                    // 路径长度修正：视角越斜，路径越长
+                    float cosRefract = saturate(dot(normalWS, -refractDirWS));
+                    float rayDistance = _Thickness / (cosRefract + 0.0001); // 防止除以零导致的数学崩溃
+                    
+                    // 计算吸收后的颜色强度 _Absorption 颜色越深，exp(-x) 衰减越快
+                    half3 transmission = exp(-( (1.0 - _TargetColor.rgb) * rayDistance ));
+                    refractColor *= transmission;
+
+                    // Reflection
+                    half3 reflectDirWS = reflect(-viewDirWS, normalWS);
+                    // URP 默认环境贴图有 7 级 Mip，将 roughness 映射到 LOD 等级
+                    float lod = _Roughness * 7.0;
+                    half3 reflectColor = SAMPLE_TEXTURECUBE_LOD(_Cubemap, sampler_Cubemap, reflectDirWS, lod).rgb;
+
+                    // Fresnel(Schlick)
+                    float f0 = pow((1.0 - _IOR) / (1.0 + _IOR), 2);
+                    float cosTheta = saturate(dot(normalWS, viewDirWS));
+                    float fresnel = f0 + (1.0 - f0) * pow(1.0 - cosTheta, 5.0);
+                    
+                    // Merge Color
+                    half3 finalColor = lerp(refractColor, reflectColor, fresnel);
+                    
+                    return half4(finalColor, albedoMap.a);
+                }
+            ENDHLSL
+        }
+    }
+    FallBack "Hidden/Universal Render Pipeline/FallbackError"
+    //项目中用
+    //FallBack "Universal Render Pipeline/Unlit"
+}
