@@ -30,22 +30,9 @@ This project is the learning note and code implementation of 《Unity Shader 入
 
 ---
 
-## 主要内容
+<!-- ## 效果展示
 
-### Ch03 ShaderLab 基础
-- **内容**: 第一个 Shader、Properties 属性类型、SubShader 结构
-- **路径**:
-  - Shader: `Shaders/Ch03/`
-  - 材质: `Materials/Ch03/`
-  - 场景: `Scenes/Ch03.unity`
-
----
-
-## 效果展示
-
-（此处放截图）
-
----
+--- -->
 
 ## 参考
 
